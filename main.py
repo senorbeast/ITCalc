@@ -1,6 +1,16 @@
+import pandas as pd
+from datetime import date, datetime
 import math
 
 brackets = {"Senior": [300000, 500000, 1000000, 1000001]}
+bracname = {
+    "Senior": [
+        "Upto 300000/-",
+        "3,00,001 to 5,00,000/-",
+        "5,00,001 to 10,00,000/-",
+        "above 10,00,001/-",
+    ]
+}
 helperb = {"Senior": [0, 10000, 100000]}
 ratesb = {"Senior": [0, 5, 20, 30]}
 
@@ -15,7 +25,7 @@ def itC(amount, bracket):
         if temp <= brackets.get(bracket)[i]:
             bigi = i
             diff = temp - brackets.get(bracket)[max(i - 1, 0)]
-            print("bigi=", bigi, "diff = ", diff)
+            # print("bigi=", bigi, "diff = ", diff)
 
             break
         else:
@@ -25,19 +35,64 @@ def itC(amount, bracket):
     # Adding all taxes before that range
     for i in range(bigi):
         tax += helperb.get(bracket)[i]
-        print("tax helper = ", tax)
+    # print("Tax from helper = ", tax)
 
     # Remaining taxable amount
-    tax += diff * 0.01 * ratesb.get(bracket)[bigi]
-    print("tax remain = ", tax, "rate=", ratesb.get(bracket)[bigi], diff)
+    remtax = diff * 0.01 * ratesb.get(bracket)[bigi]
+    tax += remtax
 
-    return tax
-
-
-# bracket = "Senior"
-# print("tax = ", itC(740500, bracket))
-
-from datetime import date, datetime
+    # bigi is the i on the range of amount
+    # print(
+    #     "Yearly Tax =",
+    #     round(tax),
+    #     "rate =",
+    #     ratesb.get(bracket)[bigi],
+    #     " That remain tax =",
+    #     diff * 0.01 * ratesb.get(bracket)[bigi],
+    # )
+    # print(
+    #     bigi,
+    #     ratesb.get(bracket)[bigi],
+    #     print([ratesb.get(bracket)[i] for i in range(bigi)]),
+    #     "bigi",
+    # )
+    data = [
+        {
+            "1": f"{brackets.get(bracket)[i]} - {brackets.get(bracket)[i-1]}"
+            if (ratesb.get(bracket)[i])
+            else "",
+            "2": brackets.get(bracket)[i] - brackets.get(bracket)[i - 1]
+            if (ratesb.get(bracket)[i])
+            else "",
+            "3": helperb.get(bracket)[i],
+        }
+        for i in range(bigi)
+    ]
+    # Last Row of Tax Slabs Calc
+    data2 = [
+        {
+            "1": f"{round(amount)} - {brackets.get(bracket)[bigi - 1]}"
+            if (ratesb.get(bracket)[i] > 0)
+            else f"{round(amount)}",
+            "2": math.ceil(diff)
+            if (ratesb.get(bracket)[i] > 0)
+            else f"{round(amount)}",
+            "3": round(remtax),
+        }
+    ]
+    # 1st column of Tax Slabs
+    ind = [
+        f"{bracname.get(bracket)[i]}   {ratesb.get(bracket)[i]}%"
+        for i in range(bigi + 1)
+    ]
+    df = pd.DataFrame(data + data2, index=ind)
+    df.loc[len(df.index)] = [
+        "",
+        "",
+        sum(df["3"]),
+    ]
+    df.index = ind + ["Income Tax"]
+    return tax, df
 
 
 def getMonths(d1, d2):
@@ -56,57 +111,168 @@ def getMonths(d1, d2):
             return 31
         return 30
 
-    m1 = int(str((d2 - d1))[0:3]) // 30
+    def monthlist_fast(dates):
+        start, end = [datetime.strptime(_, "%Y-%m-%d") for _ in dates]
+        total_months = lambda dt: dt.month + 12 * dt.year
+        mlist = []
+        for tot_m in range(total_months(start) - 1, total_months(end)):
+            y, m = divmod(tot_m, 12)
+            mlist.append(datetime(y, m + 1, 1).strftime("%b-%y"))
+        return mlist
+
+    def strd(d):
+        return f"{d.year}-{d.month}-{d.day}"
+
+    ml = monthlist_fast([strd(d1), strd(d2)])
+    wmm = len(ml) - 2
     ob1 = nodInM(d1.year, d1.month)
     ob2 = nodInM(d2.year, d2.month)
-    m2 = (ob1 - int(str(d1.day)) + 1) / ob1
-    m3 = (ob2 - int(str(d2.day))) / ob1
-    return m1 + m2 + m3, m1
+    mh1 = (ob1 - int(str(d1.day)) + 1) / ob1
+    mh2 = (int(str(d2.day))) / ob2
+    wm2 = 0
+    # print("Half month1 =", mh1, "Half month2 =", mh2)
+    if int(mh1) == 1:
+        wm2 += 1
+    if int(mh2) == 1:
+        wm2 += 1
+    # print(
+    #     "Total WM =",
+    #     wmm + mh1 + mh2,
+    #     "Whole Middle Months =",
+    #     wmm,
+    #     "Whole Months =",
+    #     wmm + wm2,
+    # )
+    return (
+        wmm + mh1 + mh2,
+        wmm + wm2,
+        [mh1, d1.month, d1.year],
+        [mh2, d2.month, d2.year],
+        ml,
+    )
+
+
+def distribute(msal, itm, mcess, ml, mh1, mh2):
+    df = pd.DataFrame()
+    df["Months"] = ml
+    df["Honorarium"] = [msal for i in range(len(ml))]
+    df["Monthly IT"] = [itm for i in range(len(ml))]
+    df["Monthly Cess"] = [mcess for i in range(len(ml))]
+    df["Total M Tax"] = df["Monthly IT"] + df["Monthly Cess"]
+    df["Net Pay"] = df["Honorarium"] - df["Total M Tax"]
+
+    # TODO: Update for partial months
+    if mh1[0] > 0 and mh1[0] < 1:
+        df.loc[
+            df.index[
+                df["Months"] == (f"{datetime(mh1[2], mh1[1], 1).strftime('%b-%y')}")
+            ]
+        ] = [
+            f"{datetime(mh1[2], mh1[1], 1).strftime('%b-%y')}",
+            round(mh1[0] * msal),
+            0,
+            0,
+            0,
+            round(mh1[0] * msal),
+        ]
+    if mh2[0] > 0 and mh2[0] < 1:
+        df.loc[
+            df.index[
+                df["Months"] == (f"{datetime(mh2[2], mh2[1], 1).strftime('%b-%y')}")
+            ]
+        ] = [
+            f"{datetime(mh2[2], mh2[1], 1).strftime('%b-%y')}",
+            round(mh2[0] * msal),
+            0,
+            0,
+            0,
+            round(mh2[0] * msal),
+        ]
+
+    # Total Row (the bottom row)
+    df.loc[len(df.index)] = [
+        "Total",
+        sum(df["Honorarium"]),
+        sum(df["Monthly IT"]),
+        sum(df["Monthly Cess"]),
+        sum(df["Total M Tax"]),
+        sum(df["Net Pay"]),
+    ]
+    df.index = [x + 1 for x in range(len(df.index))]
+    return df
 
 
 d1 = date(2021, 4, 12)
 d2 = date(2022, 2, 28)
-# print(getMonths(d1, d2))
+HFY = f"{d1} - {d2}"
+print("Working Period =", HFY)
 
 
-def monthlist_fast(dates):
-    start, end = [datetime.strptime(_, "%Y-%m-%d") for _ in dates]
-    total_months = lambda dt: dt.month + 12 * dt.year
-    mlist = []
-    for tot_m in range(total_months(start) - 1, total_months(end)):
-        y, m = divmod(tot_m, 12)
-        mlist.append(datetime(y, m + 1, 1).strftime("%b-%y"))
-    return mlist
-
-
-def strd(d1):
-    return f"{d1.year}-{d1.month}-{d1.day}"
-
-
-ml = monthlist_fast([strd(d1), strd(d2)])
 bracket = "Senior"
-wrkM, fullM = getMonths(d1, d2)
-ysal = 1200000
-msal = 1200000 / 12
-taxin = wrkM * ysal / 12
-print(taxin, wrkM)
-nettaxin = taxin - 50000
-ity = itC(nettaxin, bracket)
-itm = ity // fullM
+# Total Months working, Whole Months, Half months 1, 2, Month list
+tm, wm, mh1, mh2, ml = getMonths(d1, d2)
 
+ysal = 1200000
+msal = ysal / 12
+
+
+def honmon(msal, tm):
+    fractional, whole = math.modf(tm)
+
+    data = [
+        {"1": msal, "2": msal},
+        {"1": whole, "2": round(fractional, 2)},
+        {"1": whole * msal, "2": round(fractional * msal, 2)},
+    ]
+    df = pd.DataFrame(
+        data,
+        index=[
+            f"Honorarium Rs.{msal}/- pm",
+            "No. of months and days(in m)",
+            f"Honorarium per month @{msal}",
+        ],
+    )
+    return df
+
+
+print("")
+print(honmon(msal, tm))
+
+taxin = tm * msal
+nettaxin = taxin - 50000
+stddec = 50000
+
+
+def taxin_stddec(taxin, stddec, nettaxin):
+    data = [
+        {"1": round(taxin)},
+        {"1": round(stddec)},
+        {"1": round(nettaxin)},
+    ]
+    df = pd.DataFrame(
+        data,
+        index=[
+            "Taxable Income",
+            "(-) Standard Deduction",
+            "Net Taxable Income",
+        ],
+    )
+    return df
+
+
+print("")
+print(taxin_stddec(taxin, stddec, nettaxin))
+
+ity, dfIT = itC(nettaxin, bracket)
+print("")
+print(dfIT)
+print("")
+
+itm = round(ity / wm)
 
 ycess = 0.04 * ity
-mcess = ycess // fullM
-
-import pandas as pd
-
-# TODO: Update for partial months
-df = pd.DataFrame()
-df["Months"] = ml
-df["Honoraium"] = [msal for i in range(len(ml))]
-df["Monthly IT"] = [itm for i in range(len(ml))]
-df["Monthly Cess"] = [mcess for i in range(len(ml))]
-df["Total M Tax"] = df["Monthly IT"] + df["Monthly Cess"]
-df["Net Pay"] = df["Honoraium"] - df["Total M Tax"]
-
-print(df)
+mcess = round(ycess / wm)
+print(" Health and Education CESS @4% on IT =", round(ycess))
+print("")
+dist = distribute(msal, itm, mcess, ml, mh1, mh2)
+print(dist)
