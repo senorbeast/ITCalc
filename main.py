@@ -81,16 +81,18 @@ def itC(amount, bracket):
         }
     ]
     # 1st column of Tax Slabs
-    ind = [
-        f"{bracname.get(bracket)[i]}   {ratesb.get(bracket)[i]}%"
-        for i in range(bigi + 1)
-    ]
+    ind = [f"{bracname.get(bracket)[i]}" for i in range(bigi + 1)]
     df = pd.DataFrame(data + data2, index=ind)
+
+    df.insert(0, "Rates", value=[f"{ratesb.get(bracket)[i]}%" for i in range(bigi + 1)])
+
     df.loc[len(df.index)] = [
+        "",
         "",
         "",
         sum(df["3"]),
     ]
+
     df.index = ind + ["Income Tax"]
     return tax, df
 
@@ -202,20 +204,6 @@ def distribute(msal, itm, mcess, ml, mh1, mh2):
     return df
 
 
-d1 = date(2021, 4, 12)
-d2 = date(2022, 2, 28)
-HFY = f"{d1} - {d2}"
-print("Working Period =", HFY)
-
-
-bracket = "Senior"
-# Total Months working, Whole Months, Half months 1, 2, Month list
-tm, wm, mh1, mh2, ml = getMonths(d1, d2)
-
-ysal = 1200000
-msal = ysal / 12
-
-
 def honmon(msal, tm):
     fractional, whole = math.modf(tm)
 
@@ -235,14 +223,6 @@ def honmon(msal, tm):
     return df
 
 
-print("")
-print(honmon(msal, tm))
-
-taxin = tm * msal
-nettaxin = taxin - 50000
-stddec = 50000
-
-
 def taxin_stddec(taxin, stddec, nettaxin):
     data = [
         {"1": round(taxin)},
@@ -260,19 +240,46 @@ def taxin_stddec(taxin, stddec, nettaxin):
     return df
 
 
+### Starts aqui
+d1 = date(2021, 4, 12)
+d2 = date(2022, 2, 28)
+HFY = f"{d1} - {d2}"
+print("Working Period =", HFY)
+
+
+bracket = "Senior"
+# Total Months working, Whole Months, Half months 1, 2, Month list
+tm, wm, mh1, mh2, ml = getMonths(d1, d2)
+
+ysal = 1200000
+msal = ysal / 12
+
 print("")
+# Honorarium and Months Chart
+print(honmon(msal, tm))
+
+taxin = tm * msal
+nettaxin = taxin - 50000
+stddec = 50000
+
+print("")
+# Taxable Income and Standard Deduction Chart
 print(taxin_stddec(taxin, stddec, nettaxin))
 
 ity, dfIT = itC(nettaxin, bracket)
+
+# Tax Slabs Chart
 print("")
 print(dfIT)
-print("")
+
 
 itm = round(ity / wm)
-
 ycess = 0.04 * ity
 mcess = round(ycess / wm)
+
+print("")
 print(" Health and Education CESS @4% on IT =", round(ycess))
+
 print("")
 dist = distribute(msal, itm, mcess, ml, mh1, mh2)
 print(dist)
