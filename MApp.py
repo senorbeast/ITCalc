@@ -250,7 +250,6 @@ def pdtolisttup(df):
 
 KV = """
 MDScreen:
-    monsal:monsal
     #adaptive_height: True
     # adaptive_size: True
     #md_bg_color: app.theme_cls.primary_color
@@ -265,10 +264,11 @@ MDScreen:
             valign: "center"
             spacing:40
             MDTextField:
-                id:monsal
+                id:input
                 hint_text: "Monthly Salary"
                 helper_text: "No Commas Please"
                 helper_text_mode: "on_focus"
+                on_text: app.process()
             MDGridLayout:
                 cols:3
                 MDLabel:
@@ -306,13 +306,12 @@ MDScreen:
                     icon: "android"
                     text: "Calculate Everthing Income Tax, Distribution"
                     on_press: app.itcalc()
-            MDCard:
-                id: card   
-                size_hint: None, None
-                size: "1000dp", "1000dp"
-                pos_hint: {"center_x": .5, "center_y": .8}
-                ripple_behavior: True
-                elevation: 12
+        
+                MDLabel:
+                    size_hint_y: None
+                    text_size: self.width, None
+                    height: self.texture_size[1]
+                    text: app.calcd
 """
 
 from kivy.lang import Builder
@@ -330,16 +329,13 @@ from kivy.metrics import dp
 class MainApp(MDApp):
     startd = StringProperty()
     endd = StringProperty()
+    calcd = StringProperty()
     monsal = NumericProperty()
     taxslab = StringProperty()
-    cdh = ObjectProperty()
-    rdh = ObjectProperty()
-
-    r_data = [("3100", "20.5")]
-    c_data = [("Strike Price", dp(30)), ("Price", dp(30))]
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.calcd = "Enter data"
         self.screen = Builder.load_string(KV)
         menu_items = [
             {
@@ -347,13 +343,16 @@ class MainApp(MDApp):
                 "viewclass": "OneLineListItem",
                 "on_release": lambda x=f"{i}": self.menu_callback(x),
             }
-            for i in ["Senior Citizen"]
+            for i in ["Senior"]
         ]
         self.menu = MDDropdownMenu(
             caller=self.screen.ids.button,
             items=menu_items,
             width_mult=4,
         )
+
+    def on_text(instance, value):
+        print("The text", instance, "is:", value)
 
     def on_start(self):
         self.fps_monitor_start()
@@ -373,7 +372,7 @@ class MainApp(MDApp):
         :param date_range: list of 'datetime.date' objects in the selected range;
         :type date_range: <class 'list'>;
         """
-        print(date_range)
+        # print(date_range)
         self.startd = str(date_range[0])
         self.endd = str(date_range[-1])
 
@@ -392,44 +391,38 @@ class MainApp(MDApp):
         date_dialog.bind(on_save=self.on_save, on_cancel=self.on_cancel)
         date_dialog.open()
 
-    def on_row_press(self, instance_table, instance_row):
-        """Called when a table row is clicked."""
-
-        print(instance_table, instance_row)
-
-    def on_check_press(self, instance_table, current_row):
-        """Called when the check box in the table row is checked."""
-
-        print(instance_table, current_row)
-
     def itcalc(self):
-        d1 = datetime.strptime(self.startd, "%Y-%m-%d").date()
-        d2 = datetime.strptime(self.endd, "%Y-%m-%d").date()
+        d1 = datetime.strptime(self.startd, "%Y-%m-%d").date() or date(2021, 1, 1)
+        d2 = datetime.strptime(self.endd, "%Y-%m-%d").date() or date(2022, 1, 1)
         tm, wm, mh1, mh2, ml = getMonths(d1, d2)
-        self.rdh, self.cdh = pdtolisttup(honmon(self.monsal, tm))
-        self.data_tables = MDDataTable(
-            id="table",
-            size_hint=(0.9, 0.6),
-            use_pagination=True,
-            check=True,
-            column_data=self.c_data,
-            row_data=self.r_data,
-        )
-        self.data_tables.bind(on_row_press=self.on_row_press)
-        self.data_tables.bind(on_check_press=self.on_check_press)
-        self.root.ids.card.add_widget(self.data_tables)
+        msal = self.monsal or 0
+        self.calcd = f"The dates are {self.startd} to {self.endd}\n\n"
+        self.calcd += honmon(msal, tm).to_string(col_space=20)
+        taxin = tm * msal
+        nettaxin = taxin - 50000
+        stddec = 50000
+        # Taxable Income and Standard Deduction Chart
+        self.calcd += "\n\n"
+        self.calcd += taxin_stddec(taxin, stddec, nettaxin).to_string(col_space=20)
+        ity, dfIT = itC(nettaxin, self.taxslab)
+        self.calcd += "\n\n"
+        # Tax Slabs Chart
+        self.calcd += dfIT.to_string(col_space=20)
+        itm = round(ity / wm)
+        ycess = 0.04 * ity
+        mcess = round(ycess / wm)
+        self.calcd += "\n\n"
+        self.calcd += f"Health and Education CESS @4% on IT {round(ycess)}"
+        self.calcd += "\n\n"
+        self.calcd += distribute(msal, itm, mcess, ml, mh1, mh2).to_string(col_space=20)
+
+        self.calcd += "\n\n"
+
+    def process(self):
+        self.monsal = self.root.ids.input.text
+        print(self.monsal)
 
     def build(self):
-        # self.data_tables = MDDataTable(
-        #     use_pagination=True,
-        #     check=True,
-        #     column_data=
-        #     row_data=
-        # self.data_tables.bind(on_row_press=self.on_row_press)
-        # self.data_tables.bind(on_check_press=self.on_check_press)
-        # screen = MDScreen()
-        # screen.add_widget(self.data_tables)
-        # return screen
         return self.screen
 
 

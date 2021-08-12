@@ -1,7 +1,56 @@
+from flask import Flask
+
+app = Flask(__name__)
+from flask_cors import CORS, cross_origin
+
+CORS(app)
+
+
+@app.route("/ITC/")
+def index():
+    return "Hello World!"
+
+
+# @app.route("/ITC/")
+# async def root(details):
+#     msal = details.msal
+#     d1 = details.d1[4:15]
+#     d2 = details.d2[4:15]
+#     cat = details.cat
+#     ds = datetime.strptime(d1, "%b %d %Y").date()
+#     de = datetime.strptime(d2, "%b %d %Y").date()
+#     tm, wm, mh1, mh2, ml = getMonths(ds, de)
+#     taxin = tm * msal
+#     nettaxin = taxin - 50000
+#     stddec = 50000
+#     honoC = honmon(msal, tm).to_html()
+#     # Taxable Income and Standard Deduction Chart
+#     taxin_stdC = taxin_stddec(taxin, stddec, nettaxin).to_html()
+
+#     ity, dfIT = itC(nettaxin, taxslab[cat])
+
+#     # Tax Slabs Chart
+#     tax_slabC = dfIT.to_html()
+
+#     itm = round(ity / wm)
+#     ycess = 0.04 * ity
+#     mcess = round(ycess / wm)
+
+#     cessC = f"<p>Health and Education CESS @4% on IT {round(ycess)}</p>"
+
+#     disC = distribute(msal, itm, mcess, ml, mh1, mh2).to_html()
+
+#     return honoC + taxin_stdC + tax_slabC + cessC + disC
+
+
+if __name__ == "__main__":
+    app.run()
+
 import pandas as pd
 from datetime import date, datetime
 import math
 
+taxslab = ["Senior"]
 brackets = {"Senior": [300000, 500000, 1000000, 1000001]}
 bracname = {
     "Senior": [
@@ -41,6 +90,21 @@ def itC(amount, bracket):
     remtax = diff * 0.01 * ratesb.get(bracket)[bigi]
     tax += remtax
 
+    # bigi is the i on the range of amount
+    # print(
+    #     "Yearly Tax =",
+    #     round(tax),
+    #     "rate =",
+    #     ratesb.get(bracket)[bigi],
+    #     " That remain tax =",
+    #     diff * 0.01 * ratesb.get(bracket)[bigi],
+    # )
+    # print(
+    #     bigi,
+    #     ratesb.get(bracket)[bigi],
+    #     print([ratesb.get(bracket)[i] for i in range(bigi)]),
+    #     "bigi",
+    # )
     data = [
         {
             "1": f"{brackets.get(bracket)[i]} - {brackets.get(bracket)[i-1]}"
@@ -79,7 +143,6 @@ def itC(amount, bracket):
     ]
 
     df.index = ind + ["Income Tax"]
-    # df.reset_index(level=0, inplace=True)
     return tax, df
 
 
@@ -186,7 +249,7 @@ def distribute(msal, itm, mcess, ml, mh1, mh2):
         sum(df["Total M Tax"]),
         sum(df["Net Pay"]),
     ]
-    # df.index = [x + 1 for x in range(len(df.index))]
+    df.index = [x + 1 for x in range(len(df.index))]
     return df
 
 
@@ -206,7 +269,7 @@ def honmon(msal, tm):
             f"Honorarium per month @{msal}",
         ],
     )
-    # df.reset_index(level=0, inplace=True)
+
     return df
 
 
@@ -224,51 +287,4 @@ def taxin_stddec(taxin, stddec, nettaxin):
             "Net Taxable Income",
         ],
     )
-    # df.reset_index(level=0, inplace=True)
     return df
-
-
-### Starts aqui
-d1 = date(2021, 1, 1)
-d2 = date(2022, 1, 1)
-HFY = f"{d1} - {d2}"
-print("Working Period =", HFY)
-
-
-bracket = "Senior"
-# Total Months working, Whole Months, Half months 1, 2, Month list
-tm, wm, mh1, mh2, ml = getMonths(d1, d2)
-
-ysal = 1200000
-msal = ysal / 12
-
-print("")
-# Honorarium and Months Chart
-print(honmon(msal, tm))
-
-
-taxin = tm * msal
-nettaxin = taxin - 50000
-stddec = 50000
-
-print("")
-# Taxable Income and Standard Deduction Chart
-print(taxin_stddec(taxin, stddec, nettaxin))
-
-ity, dfIT = itC(nettaxin, bracket)
-
-# Tax Slabs Chart
-print("")
-print(dfIT)
-
-
-itm = round(ity / wm)
-ycess = 0.04 * ity
-mcess = round(ycess / wm)
-
-print("")
-print(" Health and Education CESS @4% on IT =", round(ycess))
-
-print("")
-dist = distribute(msal, itm, mcess, ml, mh1, mh2)
-print(dist)
