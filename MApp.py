@@ -318,12 +318,9 @@ from kivy.lang import Builder
 from kivymd.uix.picker import MDDatePicker
 from kivymd.app import MDApp
 from kivymd.uix.menu import MDDropdownMenu
-from kivy.properties import StringProperty, NumericProperty, ObjectProperty
+from kivy.properties import StringProperty, NumericProperty
 from kivymd.app import MDApp
-from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.menu import MDDropdownMenu
-from kivymd.uix.datatables import MDDataTable
-from kivy.metrics import dp
 
 
 class MainApp(MDApp):
@@ -351,9 +348,6 @@ class MainApp(MDApp):
             width_mult=4,
         )
 
-    def on_text(instance, value):
-        print("The text", instance, "is:", value)
-
     def on_start(self):
         self.fps_monitor_start()
 
@@ -378,6 +372,7 @@ class MainApp(MDApp):
 
     def on_cancel(self, instance, value):
         """Events called when the "CANCEL" dialog box button is clicked."""
+        pass
 
     def show_date_picker(self):
         date_dialog = MDDatePicker(
@@ -397,30 +392,29 @@ class MainApp(MDApp):
         tm, wm, mh1, mh2, ml = getMonths(d1, d2)
         msal = self.monsal or 0
         self.calcd = f"The dates are {self.startd} to {self.endd}\n\n"
-        self.calcd += honmon(msal, tm).to_string(col_space=20)
+        self.calcd += honmon(msal, tm).to_string(col_space=5)
         taxin = tm * msal
         nettaxin = taxin - 50000
         stddec = 50000
         # Taxable Income and Standard Deduction Chart
         self.calcd += "\n\n"
-        self.calcd += taxin_stddec(taxin, stddec, nettaxin).to_string(col_space=20)
+        self.calcd += taxin_stddec(taxin, stddec, nettaxin).to_string(col_space=5)
         ity, dfIT = itC(nettaxin, self.taxslab)
         self.calcd += "\n\n"
         # Tax Slabs Chart
-        self.calcd += dfIT.to_string(col_space=20)
+        self.calcd += dfIT.to_string(col_space=5)
         itm = round(ity / wm)
         ycess = 0.04 * ity
         mcess = round(ycess / wm)
         self.calcd += "\n\n"
         self.calcd += f"Health and Education CESS @4% on IT {round(ycess)}"
         self.calcd += "\n\n"
-        self.calcd += distribute(msal, itm, mcess, ml, mh1, mh2).to_string(col_space=20)
+        self.calcd += distribute(msal, itm, mcess, ml, mh1, mh2).to_string(col_space=5)
 
         self.calcd += "\n\n"
 
     def process(self):
         self.monsal = self.root.ids.input.text
-        print(self.monsal)
 
     def build(self):
         return self.screen
