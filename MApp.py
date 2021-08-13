@@ -248,15 +248,22 @@ def pdtolisttup(df):
     return rows, cols
 
 
+# Here root is manager and manager is root for KV
 KV = """
-MDScreen:
-    #adaptive_height: True
+ScreenManager:
+    MainScreen:
+        name: 'main_screen'
+    DTScreen:
+        name: 'dt_screen'
+<MainScreen>:
+    # adaptive_height: True
     # adaptive_size: True
     #md_bg_color: app.theme_cls.primary_color
     MDToolbar:
         title: "IT Calculator"
         type:"top"
     ScrollView:
+        height: root.height*2
         spacing:20
         MDList:
             padding: [25, 80, 25, 25] 
@@ -305,13 +312,33 @@ MDScreen:
                     spacing: 80 
                     icon: "android"
                     text: "Calculate Everthing Income Tax, Distribution"
-                    on_press: app.itcalc()
-        
+                    on_press: 
+                        app.itcalc()
+                        root.manager.transition.direction = 'right'
+                        root.manager.current = 'dt_screen'
                 MDLabel:
-                    size_hint_y: None
-                    text_size: self.width, None
-                    height: self.texture_size[1]
-                    text: app.calcd
+                    valign: 'top'
+                    halign: 'center'
+                    text_size: root.width, root.height
+                    height: root.height*1
+                    text: "Done"
+<DTScreen>:
+    MDGridLayout:
+        cols:1
+        MDRaisedButton:
+            text: "Edit Options"
+            # background_color : 1, 0, 0, 1
+            on_press:
+                root.manager.transition.direction = 'right'
+                root.manager.current = 'main_screen'
+        MDLabel:
+            valign: 'top'
+            halign: 'center'
+            # size_hint_y: None
+            text_size: root.width, root.height
+            height: root.height*1
+            text: app.calcd
+
 """
 
 from kivy.lang import Builder
@@ -321,6 +348,27 @@ from kivymd.uix.menu import MDDropdownMenu
 from kivy.properties import StringProperty, NumericProperty
 from kivymd.app import MDApp
 from kivymd.uix.menu import MDDropdownMenu
+from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.uix.screenmanager import (
+    ScreenManager,
+    Screen,
+    NoTransition,
+    SlideTransition,
+    CardTransition,
+    SwapTransition,
+    FadeTransition,
+    WipeTransition,
+    FallOutTransition,
+    RiseInTransition,
+)
+
+
+class DTScreen(Screen):
+    pass
+
+
+class MainScreen(Screen):
+    pass
 
 
 class MainApp(MDApp):
@@ -333,7 +381,8 @@ class MainApp(MDApp):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.calcd = "Enter data"
-        self.screen = Builder.load_string(KV)
+        self.manager = Builder.load_string(KV)
+
         menu_items = [
             {
                 "text": f"{i}",
@@ -343,13 +392,13 @@ class MainApp(MDApp):
             for i in ["Senior"]
         ]
         self.menu = MDDropdownMenu(
-            caller=self.screen.ids.button,
+            caller=self.manager.get_screen("main_screen").ids.button,
             items=menu_items,
             width_mult=4,
         )
 
-    def on_start(self):
-        self.fps_monitor_start()
+    # def on_start(self):
+    #     self.fps_monitor_start()
 
     def menu_callback(self, text_item):
         self.taxslab = text_item
@@ -414,10 +463,11 @@ class MainApp(MDApp):
         self.calcd += "\n\n"
 
     def process(self):
-        self.monsal = self.root.ids.input.text
+        self.monsal = self.root.get_screen("main_screen").ids.input.text
 
     def build(self):
-        return self.screen
+        return self.manager
 
 
-MainApp().run()
+if __name__ == "__main__":
+    MainApp().run()
