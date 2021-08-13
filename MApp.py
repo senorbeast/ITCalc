@@ -248,7 +248,7 @@ def pdtolisttup(df):
     return rows, cols
 
 
-# Here root is manager and manager is root for KV
+# But in kv file root should be used, to refer root object
 KV = """
 ScreenManager:
     MainScreen:
@@ -263,7 +263,7 @@ ScreenManager:
         title: "IT Calculator"
         type:"top"
     ScrollView:
-        height: root.height*2
+        height: root.height
         spacing:20
         MDList:
             padding: [25, 80, 25, 25] 
@@ -275,6 +275,7 @@ ScreenManager:
                 hint_text: "Monthly Salary"
                 helper_text: "No Commas Please"
                 helper_text_mode: "on_focus"
+                text: "100000"
                 on_text: app.process()
             MDGridLayout:
                 cols:3
@@ -284,24 +285,30 @@ ScreenManager:
                     text: app.startd
                 MDLabel:
                     text: app.endd
+            MDGridLayout:
+                cols:3
+                MDRaisedButton:
+                    text: "Start Date"
+                    # pos_hint: {'center_x': .5, 'center_y': .5}
+                    on_release: app.show_date_pickerS()
+                MDRaisedButton:
+                    text: "Last Date"
+                    # pos_hint: {'center_x': .5, 'center_y': .5}
+                    on_release: app.show_date_pickerE()
 
-            MDRaisedButton:
-                text: "Select Working days range"
-                pos_hint: {'center_x': .5, 'center_y': .5}
-                on_release: app.show_date_picker()
             MDGridLayout:
                 cols:2
                 spacing:20
                 MDRaisedButton:
                     id: button
                     text: "Select Tax Slab"
-                    pos_hint: {"center_x": .5, "center_y": .5}
+                    # pos_hint: {"center_x": .5, "center_y": .5}
                     on_release: app.menu.open()
                     
                 MDLabel:
                     text: app.taxslab
-            #Calculate Button
-
+            MDLabel:
+                text: " "
             MDGridLayout:
                 cols:1
                 spacing:60
@@ -314,14 +321,8 @@ ScreenManager:
                     text: "Calculate Everthing Income Tax, Distribution"
                     on_press: 
                         app.itcalc()
-                        root.manager.transition.direction = 'right'
+                        root.manager.transition.direction = 'left'
                         root.manager.current = 'dt_screen'
-                MDLabel:
-                    valign: 'top'
-                    halign: 'center'
-                    text_size: root.width, root.height
-                    height: root.height*1
-                    text: "Done"
 <DTScreen>:
     MDGridLayout:
         cols:1
@@ -331,13 +332,18 @@ ScreenManager:
             on_press:
                 root.manager.transition.direction = 'right'
                 root.manager.current = 'main_screen'
-        MDLabel:
-            valign: 'top'
-            halign: 'center'
-            # size_hint_y: None
-            text_size: root.width, root.height
-            height: root.height*1
-            text: app.calcd
+        ScrollView:
+            do_scroll_x: True
+            do_scroll_y: True
+            MDLabel:
+                valign: 'center'
+                halign: 'center'
+                size_hint_y: None
+                size_hint_x: None
+                text_size: 900, 1500
+                height: 1500
+                width: 900
+                text: app.calcd
 
 """
 
@@ -381,8 +387,11 @@ class MainApp(MDApp):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.calcd = "Enter data"
+        self.startd = str(date(2021, 1, 1))
+        self.endd = str(date(2022, 1, 1))
         self.manager = Builder.load_string(KV)
-
+        self.monsal = 100000
+        self.taxslab = "Senior"
         menu_items = [
             {
                 "text": f"{i}",
@@ -391,6 +400,7 @@ class MainApp(MDApp):
             }
             for i in ["Senior"]
         ]
+        # Needed to use self.manager as we are in __init__ and self.root is defined after init
         self.menu = MDDropdownMenu(
             caller=self.manager.get_screen("main_screen").ids.button,
             items=menu_items,
@@ -403,36 +413,34 @@ class MainApp(MDApp):
     def menu_callback(self, text_item):
         self.taxslab = text_item
 
-    def on_save(self, instance, value, date_range):
-        """
-        Events called when the "OK" dialog box button is clicked.
-
-        :type instance: <kivymd.uix.picker.MDDatePicker object>;
-
-        :param value: selected date;
-        :type value: <class 'datetime.date'>;
-
-        :param date_range: list of 'datetime.date' objects in the selected range;
-        :type date_range: <class 'list'>;
-        """
+    def on_saveS(self, instance, value, date_range):
         # print(date_range)
-        self.startd = str(date_range[0])
-        self.endd = str(date_range[-1])
+        self.startd = str(value)
 
-    def on_cancel(self, instance, value):
+    def on_cancelS(self, instance, value):
         """Events called when the "CANCEL" dialog box button is clicked."""
-        pass
+        self.startd = self.startd or str(date(2021, 1, 1))
 
-    def show_date_picker(self):
+    def on_saveE(self, instance, value, date_range):
+        # print(date_range)
+        self.endd = str(value)
+
+    def on_cancelE(self, instance, value):
+        """Events called when the "CANCEL" dialog box button is clicked."""
+        self.endd = self.endd or str(date(2022, 1, 1))
+
+    def show_date_pickerS(self):
         date_dialog = MDDatePicker(
-            min_year=2020,
-            max_year=2030,
-            year=2021,
-            month=1,
-            day=1,
-            mode="range",
+            min_year=2020, max_year=2030, year=2021, month=1, day=1
         )
-        date_dialog.bind(on_save=self.on_save, on_cancel=self.on_cancel)
+        date_dialog.bind(on_save=self.on_saveS, on_cancel=self.on_cancelS)
+        date_dialog.open()
+
+    def show_date_pickerE(self):
+        date_dialog = MDDatePicker(
+            min_year=2020, max_year=2030, year=2022, month=1, day=1
+        )
+        date_dialog.bind(on_save=self.on_saveE, on_cancel=self.on_cancelE)
         date_dialog.open()
 
     def itcalc(self):
@@ -441,28 +449,38 @@ class MainApp(MDApp):
         tm, wm, mh1, mh2, ml = getMonths(d1, d2)
         msal = self.monsal or 0
         self.calcd = f"The dates are {self.startd} to {self.endd}\n\n"
-        self.calcd += honmon(msal, tm).to_string(col_space=5)
+        self.calcd += "\n\n"
+        self.calcd += f"Monthly salary={self.monsal}\n\n"
+        self.calcd += "\n\n"
+        self.calcd += honmon(msal, tm).to_string(col_space=25)
         taxin = tm * msal
         nettaxin = taxin - 50000
         stddec = 50000
         # Taxable Income and Standard Deduction Chart
         self.calcd += "\n\n"
-        self.calcd += taxin_stddec(taxin, stddec, nettaxin).to_string(col_space=5)
+        self.calcd += "\n\n"
+        self.calcd += taxin_stddec(taxin, stddec, nettaxin).to_string(col_space=25)
         ity, dfIT = itC(nettaxin, self.taxslab)
         self.calcd += "\n\n"
+        self.calcd += "\n\n"
         # Tax Slabs Chart
-        self.calcd += dfIT.to_string(col_space=5)
+        self.calcd += dfIT.to_string(col_space=25)
         itm = round(ity / wm)
         ycess = 0.04 * ity
         mcess = round(ycess / wm)
         self.calcd += "\n\n"
+        self.calcd += "\n\n"
         self.calcd += f"Health and Education CESS @4% on IT {round(ycess)}"
         self.calcd += "\n\n"
-        self.calcd += distribute(msal, itm, mcess, ml, mh1, mh2).to_string(col_space=5)
-
+        self.calcd += "\n\n"
+        self.calcd += distribute(msal, itm, mcess, ml, mh1, mh2).to_string(col_space=25)
+        self.calcd += "\n\n"
         self.calcd += "\n\n"
 
     def process(self):
+        # here self.manager and self.root both work as
+        # its after __init__ (intialization)
+        # self.root is defined
         self.monsal = self.root.get_screen("main_screen").ids.input.text
 
     def build(self):
